@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>彩窗铅条骨架编排</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>彩窗铅条骨架编排</h1>
+    <p class="subtitle">
+      选择恰好「玻璃片数 − 1」条候选铅条：全部连通、任意子集无环、每片连接数落在闭区间内；
+      依次取最弱采用铅条等级最高、总代价最低、录入序号序列字典序最小的方案。
+    </p>
+  </header>
+
+  <main>
+    <section class="editor">
+      <div class="panel">
+        <h2>玻璃片 <span class="hint">（5–8 片，编号唯一）</span></h2>
+        <table class="grid" id="pieces-table">
+          <thead>
+            <tr><th>编号</th><th>连接数下限</th><th>连接数上限</th><th></th></tr>
+          </thead>
+          <tbody id="pieces-tbody"></tbody>
+        </table>
+        <button type="button" id="add-piece" class="ghost">＋ 添加玻璃片</button>
+      </div>
+
+      <div class="panel">
+        <h2>候选铅条 <span class="hint">（8–14 条，按录入顺序编号）</span></h2>
+        <table class="grid" id="candidates-table">
+          <thead>
+            <tr><th>序号</th><th>端点 A</th><th>端点 B</th><th>抗拉等级</th><th>安装代价</th><th></th></tr>
+          </thead>
+          <tbody id="candidates-tbody"></tbody>
+        </table>
+        <button type="button" id="add-candidate" class="ghost">＋ 添加候选铅条</button>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="load-sample" class="ghost">载入样例</button>
+        <button type="button" id="solve-btn" class="primary">编 排</button>
+      </div>
+    </section>
+
+    <section class="results">
+      <div id="errors" class="errors" hidden></div>
+
+      <div id="summary" class="summary" hidden></div>
+
+      <div id="evidence-panel" class="panel evidence" hidden>
+        <h2>不存在合格骨架 —— 失败证据（按玻璃片编号排序）</h2>
+        <ol id="evidence-list"></ol>
+      </div>
+
+      <div class="panel" id="canvas-panel" hidden>
+        <h2>骨架结构</h2>
+        <canvas id="skeleton-canvas" width="680" height="500"></canvas>
+        <p class="legend">
+          <span class="swatch adopted"></span>采用铅条（标注：序号 / 等级 / 代价）
+          <span class="swatch rejected"></span>未采用候选
+        </p>
+      </div>
+
+      <div class="panel" id="adopted-panel" hidden>
+        <h2>采用的铅条</h2>
+        <table class="grid" id="adopted-table">
+          <thead><tr><th>序号</th><th>端点 A</th><th>端点 B</th><th>抗拉等级</th><th>安装代价</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel" id="rejected-panel" hidden>
+        <h2>未采用的铅条</h2>
+        <table class="grid" id="rejected-table">
+          <thead><tr><th>序号</th><th>端点 A</th><th>端点 B</th><th>抗拉等级</th><th>安装代价</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel" id="degrees-panel" hidden>
+        <h2>各片实际连接数</h2>
+        <table class="grid" id="degrees-table">
+          <thead><tr><th>编号</th><th>实际连接数</th><th>允许区间</th><th>是否满足</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="solver.js"></script>
+  <script src="sample.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

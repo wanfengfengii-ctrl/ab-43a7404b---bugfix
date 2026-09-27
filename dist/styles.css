@@ -1,0 +1,201 @@
+:root {
+  --ink: #1f2933;
+  --muted: #6b7280;
+  --line: #d7dce3;
+  --accent: #0b7285;
+  --accent-dark: #095b6a;
+  --danger: #b02a37;
+  --ok: #1e7e34;
+  --panel: #ffffff;
+  --bg: #f4f6f9;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+header {
+  background: linear-gradient(135deg, #0b7285, #1864ab);
+  color: #fff;
+  padding: 28px 32px 22px;
+}
+
+header h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: 1px; }
+
+.subtitle { margin: 0; font-size: 13px; opacity: 0.92; max-width: 960px; line-height: 1.7; }
+
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.panel h2 { margin: 0 0 12px; font-size: 17px; }
+
+.hint { font-size: 12px; color: var(--muted); font-weight: normal; }
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+table.grid th, table.grid td {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+table.grid th { background: #eef2f7; font-weight: 600; }
+
+table.grid input {
+  width: 100%;
+  max-width: 110px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+}
+
+table.grid input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+button {
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  padding: 8px 18px;
+}
+
+button.ghost {
+  background: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button.ghost:hover:not(:disabled) { background: #e6f4f6; }
+
+button.ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  padding: 10px 42px;
+  letter-spacing: 4px;
+}
+
+button.primary:hover { background: var(--accent-dark); }
+
+button.row-del {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 16px;
+  padding: 2px 8px;
+}
+
+button.row-del:disabled { color: #c4c9d1; cursor: not-allowed; }
+
+.actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin: 4px 0 28px;
+}
+
+.errors {
+  background: #fdecec;
+  border: 1px solid #f3b8be;
+  color: var(--danger);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.errors ul { margin: 6px 0 0; padding-left: 20px; }
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.summary .card {
+  flex: 1 1 160px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.summary .card .label { font-size: 12px; color: var(--muted); }
+
+.summary .card .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+
+.evidence { border-left: 4px solid var(--danger); }
+
+.evidence ol { margin: 0; padding-left: 22px; line-height: 1.9; font-size: 14px; }
+
+.evidence li .tag {
+  display: inline-block;
+  font-size: 12px;
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin-right: 8px;
+  color: #fff;
+}
+
+.evidence li .tag.range { background: #c0780a; }
+.evidence li .tag.connectivity { background: #7c3aed; }
+.evidence li.first { font-weight: 600; }
+.evidence li.first::after {
+  content: "（首个失败证据）";
+  color: var(--danger);
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+#skeleton-canvas {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.legend { font-size: 12px; color: var(--muted); text-align: center; margin: 10px 0 0; }
+
+.swatch {
+  display: inline-block;
+  width: 26px;
+  height: 0;
+  vertical-align: middle;
+  margin: 0 6px 2px 14px;
+}
+
+.swatch.adopted { border-top: 4px solid var(--accent); }
+.swatch.rejected { border-top: 2px dashed #b6bcc7; }
+
+.ok-mark { color: var(--ok); font-weight: 700; }
+.bad-mark { color: var(--danger); font-weight: 700; }

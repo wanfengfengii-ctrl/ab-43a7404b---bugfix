@@ -1,0 +1,25 @@
+# 彩窗铅条骨架编排
+#   启动页面：  WEB_PORT=8080 docker compose up -d web
+#   一次性校验：docker compose run --rm verify   （退出码即结果）
+services:
+  web:
+    build:
+      context: .
+      target: web
+    image: stained-glass-web:latest
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  verify:
+    build:
+      context: .
+      target: verify
+    image: stained-glass-verify:latest
+    # 一次性服务：启动即执行 测试 → 构建 → 骨架样例冒烟，退出码报告结果
