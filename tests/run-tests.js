@@ -79,6 +79,84 @@ test('优先级③：等级与代价并列时取录入序号序列字典序最�
   assert.deepStrictEqual(res.adopted, [0, 2, 3, 4]);
 });
 
+/* 小数代价场景：5 片 [1,2]，10 条等级均为 5 的候选（题述回归场景） */
+function decimalScenario(cost10) {
+  const pieces = [1, 2, 3, 4, 5].map((i) => ({ id: String(i), minDeg: 1, maxDeg: 2 }));
+  const ends = [['1', '2'], ['1', '3'], ['1', '4'], ['1', '5'], ['2', '3'],
+    ['2', '4'], ['2', '5'], ['3', '4'], ['3', '5'], ['4', '5']];
+  const costs = [0.3, 0, 0.2, 0, 0.3, 0.3, 0, 0.3, 0.3, cost10];
+  const candidates = ends.map(([a, b], i) => ({ a, b, grade: 5, cost: costs[i] }));
+  return { pieces, candidates };
+}
+
+/* 并查集核验：采用集无环、全部连通，且各片连接数落在闭区间内 */
+function assertValidSkeleton(res, pieces, candidates) {
+  const idx = new Map(pieces.map((p, i) => [p.id, i]));
+  const parent = pieces.map((_, i) => i);
+  const find = (x) => {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  };
+  assert.strictEqual(res.adopted.length, pieces.length - 1, '采用条数应为片数-1');
+  for (const ci of res.adopted) {
+    const ra = find(idx.get(String(candidates[ci].a)));
+    const rb = find(idx.get(String(candidates[ci].b)));
+    assert.notStrictEqual(ra, rb, '采用铅条不得成环');
+    parent[ra] = rb;
+  }
+  const roots = new Set(pieces.map((_, i) => find(i)));
+  assert.strictEqual(roots.size, 1, '全部玻璃片须连通');
+  for (const p of pieces) {
+    assert.ok(res.degrees[p.id] >= p.minDeg && res.degrees[p.id] <= p.maxDeg,
+      `玻璃片 ${p.id} 连接数须落在 [${p.minDeg}, ${p.maxDeg}]`);
+  }
+}
+
+test('小数代价：十进制总代价并列时可靠进入序号裁决', () => {
+  // #2#4#6#7 与 #2#3#7#10 的十进制总代价同为 0.3，但浮点求和 0.2+0.1=0.30000000000000004；
+  // 并列须成立，取录入序号序列字典序更小的 #2 #3 #7 #10（0 基 [1,2,6,9]）
+  const { pieces, candidates } = decimalScenario(0.1);
+  const res = solver.solve(pieces, candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [1, 2, 6, 9]);
+  assert.strictEqual(res.minGrade, 5);
+  assert.strictEqual(res.totalCost, 0.3);
+  assert.deepStrictEqual(res.degrees, { 1: 2, 2: 1, 3: 1, 4: 2, 5: 2 });
+  assertValidSkeleton(res, pieces, candidates);
+});
+
+test('小数代价：真实存在的总代价差仍优先，不被当作并列', () => {
+  // #10 代价 0.1000001：#2#3#7#10 总代价 0.3000001 真实高于 0.3，
+  // 第②级须判负，由总代价真正更低的 #2 #4 #6 #7（0 基 [1,3,5,6]）胜出
+  const { pieces, candidates } = decimalScenario(0.1000001);
+  const res = solver.solve(pieces, candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [1, 3, 5, 6]);
+  assert.strictEqual(res.totalCost, 0.3);
+  assertValidSkeleton(res, pieces, candidates);
+});
+
+test('小数代价：最弱等级最高仍优先于总代价最低', () => {
+  // 弱骨架（等级3，总代价 0.4）与强骨架（等级7，总代价 1.2）二选一，须取强骨架
+  const pieces = [1, 2, 3, 4, 5].map((i) => ({ id: String(i), minDeg: 1, maxDeg: 2 }));
+  const candidates = [
+    { a: '1', b: '2', grade: 3, cost: 0.1 },
+    { a: '2', b: '3', grade: 3, cost: 0.1 },
+    { a: '3', b: '4', grade: 3, cost: 0.1 },
+    { a: '4', b: '5', grade: 3, cost: 0.1 },
+    { a: '1', b: '2', grade: 7, cost: 0.3 },
+    { a: '2', b: '3', grade: 7, cost: 0.3 },
+    { a: '3', b: '4', grade: 7, cost: 0.3 },
+    { a: '4', b: '5', grade: 7, cost: 0.3 },
+  ];
+  const res = solver.solve(pieces, candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [4, 5, 6, 7]);
+  assert.strictEqual(res.minGrade, 7);
+  assert.strictEqual(res.totalCost, 1.2);
+  assertValidSkeleton(res, pieces, candidates);
+});
+
 test('度数约束：避开会形成环或超出连接上限的组合', () => {
   // 三角形 1-2-3 全选会成环；样例最优解中片 4 的连接数被上限 2 约束
   const res = solver.solve(SKELETON_SAMPLE.pieces, SKELETON_SAMPLE.candidates);

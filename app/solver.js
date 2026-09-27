@@ -7,7 +7,7 @@
  *   3. 每片玻璃片的实际连接数落在其闭区间 [minDeg, maxDeg] 内。
  * 在所有合格骨架中按优先级依次取：
  *   ① 最弱采用铅条等级最高（最大化最小抗拉等级）；
- *   ② 总代价最低；
+ *   ② 总代价最低（按录入的十进制代价精确求和比较，见 costDecimals 注释）；
  *   ③ 采用候选的录入序号序列（升序）字典序最小。
  * 无解时给出按玻璃片编号排序的失败证据（连接范围 / 连通性）。
  *
@@ -24,6 +24,28 @@
   const MAX_PIECES = 8;
   const MIN_CANDIDATES = 8;
   const MAX_CANDIDATES = 14;
+
+  /*
+   * 十进制代价精确比较：
+   * 录入代价允许小数（如 0.1 / 0.2），直接以 IEEE-754 浮点求和会出现
+   * 0.2 + 0.1 = 0.30000000000000004 ≠ 0.3 的偏差，使十进制总代价相等的
+   * 可行骨架无法进入第 ③ 级序号裁决。为此按录入的小数位把代价放大为整数
+   * （统一放大 10^d 倍，d 为全部候选中的最大小数位），整数求和与比较均精确；
+   * 总代价再缩回十进制输出。小数位上限 9 位：兼顾录入精度与整数求和不溢出
+   * （代价 ≤ 1e6 时 14 条求和仍远低于 Number.MAX_SAFE_INTEGER）。
+   * 真实存在的总代价差（只要不超过该精度）仍按数值严格裁决，不会被当作并列。
+   */
+  const MAX_COST_DECIMALS = 9;
+
+  /* 数值 x 的十进制小数位数（兼容 1e-7 等科学计数法表示） */
+  function costDecimals(x) {
+    const s = String(x);
+    const e = s.indexOf('e');
+    const dot = s.indexOf('.');
+    if (e === -1) return dot === -1 ? 0 : s.length - dot - 1;
+    const frac = dot === -1 || dot > e ? 0 : e - dot - 1;
+    return Math.max(0, frac - Number(s.slice(e + 1)));
+  }
 
   /* 编号排序：纯数字按数值，否则按字符串（确定性，保证证据稳定排序） */
   function compareIds(a, b) {
@@ -132,6 +154,12 @@
     const m = edges.length;
     const need = n - 1; // 恰好比玻璃片数少一条
 
+    // 十进制代价放大为整数，保证总代价按录入精度精确求和、精确比较
+    let decimals = 0;
+    for (const e of edges) decimals = Math.max(decimals, costDecimals(e.cost));
+    const scale = 10 ** Math.min(decimals, MAX_COST_DECIMALS);
+    edges.forEach((e) => { e.costInt = Math.round(e.cost * scale); });
+
     let best = null;
     for (const combo of combinations(m, need, 0, [])) {
       // 并查集：检环 + 连通（n-1 条边且无环 ⇒ 必为连通生成树，任意子集亦无环）
@@ -166,7 +194,7 @@
       let cost = 0;
       for (const ci of combo) {
         if (edges[ci].grade < minGrade) minGrade = edges[ci].grade;
-        cost += edges[ci].cost;
+        cost += edges[ci].costInt; // 整数累加，十进制总代价精确
       }
       const candidate = { indices: combo.slice(), minGrade, cost, deg };
       if (!best || isBetter(candidate, best)) best = candidate;
@@ -185,7 +213,7 @@
       rejected: edges.map((_, i) => i).filter((i) => !adoptedSet.has(i)),
       degrees,
       minGrade: best.minGrade,
-      totalCost: best.cost,
+      totalCost: best.cost / scale, // 缩回十进制（如整数 3 / 10 = 0.3）
     };
   }
 
