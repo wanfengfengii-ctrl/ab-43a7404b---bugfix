@@ -7,7 +7,7 @@
  *   3. 每片玻璃片的实际连接数落在其闭区间 [minDeg, maxDeg] 内。
  * 在所有合格骨架中按优先级依次取：
  *   ① 最弱采用铅条等级最高（最大化最小抗拉等级）；
- *   ② 总代价最低；
+ *   ② 总代价最低（十进制精确求和与比较，小数代价并列可进入下级裁决）；
  *   ③ 采用候选的录入序号序列（升序）字典序最小。
  * 无解时给出按玻璃片编号排序的失败证据（连接范围 / 连通性）。
  *
@@ -75,6 +75,39 @@
     return errors;
   }
 
+  /*
+   * 十进制代价的精确表示：录入代价为十进制小数，二进制浮点求和会产生误差
+   * （如 0.2 + 0.1 ≠ 0.3），使总代价并列的可行骨架被误判为更贵、无法进入
+   * 序号裁决。这里把每条代价解析为「整数 × 10^exp」，全部代价统一按最小
+   * 指数缩放为整数键（BigInt），求和与比较都在整数键上进行，真实代价差
+   * 与十进制并列都能被精确区分。
+   */
+  function toDecimal(value) {
+    let s = String(value);
+    let exp = 0;
+    const e = s.indexOf('e');
+    if (e >= 0) {
+      exp = Number(s.slice(e + 1));
+      s = s.slice(0, e);
+    }
+    const dot = s.indexOf('.');
+    if (dot >= 0) {
+      exp -= s.length - dot - 1;
+      s = s.slice(0, dot) + s.slice(dot + 1);
+    }
+    return { digits: BigInt(s), exp };
+  }
+
+  /* 由「整数 × 10^exp」还原展示用数值（经十进制字符串解析，结果确定） */
+  function decimalValue(digits, exp) {
+    const s = digits.toString();
+    if (exp >= 0) return Number(s + '0'.repeat(exp));
+    const point = s.length + exp;
+    return Number(point > 0
+      ? s.slice(0, point) + '.' + s.slice(point)
+      : '0.' + '0'.repeat(-point) + s);
+  }
+
   /* 生成 C(m, k) 的全部组合（元素为 0 基序号，升序） */
   function* combinations(m, k, start, prefix) {
     start = start || 0;
@@ -93,7 +126,7 @@
   /* 方案比较：a 严格优于 b 时返回 true */
   function isBetter(a, b) {
     if (a.minGrade !== b.minGrade) return a.minGrade > b.minGrade; // ① 最弱等级最高
-    if (a.cost !== b.cost) return a.cost < b.cost;                 // ② 总代价最低
+    if (a.costKey !== b.costKey) return a.costKey < b.costKey;     // ② 总代价最低（十进制精确）
     for (let i = 0; i < a.indices.length; i++) {                   // ③ 序号序列字典序最小
       if (a.indices[i] !== b.indices[i]) return a.indices[i] < b.indices[i];
     }
@@ -113,7 +146,13 @@
       grade: c.grade,
       cost: c.cost,
     }));
-    return { pieces: normPieces, edges };
+    // 十进制精确化：以全部代价的最小十进制指数为公共单位，缩放为整数代价键
+    const decimals = edges.map((e) => toDecimal(e.cost));
+    const costExp = Math.min(...decimals.map((d) => d.exp));
+    edges.forEach((e, i) => {
+      e.costKey = decimals[i].digits * 10n ** BigInt(decimals[i].exp - costExp);
+    });
+    return { pieces: normPieces, edges, costExp };
   }
 
   /*
@@ -127,7 +166,7 @@
     const errors = validate(pieces, candidates);
     if (errors.length) return { status: 'invalid', errors };
 
-    const { pieces: ps, edges } = normalize(pieces, candidates);
+    const { pieces: ps, edges, costExp } = normalize(pieces, candidates);
     const n = ps.length;
     const m = edges.length;
     const need = n - 1; // 恰好比玻璃片数少一条
@@ -163,12 +202,12 @@
       if (!fit) continue;
 
       let minGrade = Infinity;
-      let cost = 0;
+      let costKey = 0n;
       for (const ci of combo) {
         if (edges[ci].grade < minGrade) minGrade = edges[ci].grade;
-        cost += edges[ci].cost;
+        costKey += edges[ci].costKey;
       }
-      const candidate = { indices: combo.slice(), minGrade, cost, deg };
+      const candidate = { indices: combo.slice(), minGrade, costKey, deg };
       if (!best || isBetter(candidate, best)) best = candidate;
     }
 
@@ -185,7 +224,7 @@
       rejected: edges.map((_, i) => i).filter((i) => !adoptedSet.has(i)),
       degrees,
       minGrade: best.minGrade,
-      totalCost: best.cost,
+      totalCost: decimalValue(best.costKey, costExp),
     };
   }
 

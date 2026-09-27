@@ -79,6 +79,97 @@ test('优先级③：等级与代价并列时取录入序号序列字典序最�
   assert.deepStrictEqual(res.adopted, [0, 2, 3, 4]);
 });
 
+/* 小数代价场景：5 片（连接数均 [1,2]）、10 条等级均为 5 的候选 */
+const DECIMAL_CASE = {
+  pieces: [1, 2, 3, 4, 5].map((i) => ({ id: String(i), minDeg: 1, maxDeg: 2 })),
+  candidates: [
+    { a: '1', b: '2', grade: 5, cost: 0.3 }, // #1
+    { a: '1', b: '3', grade: 5, cost: 0 },   // #2
+    { a: '1', b: '4', grade: 5, cost: 0.2 }, // #3
+    { a: '1', b: '5', grade: 5, cost: 0 },   // #4
+    { a: '2', b: '3', grade: 5, cost: 0.3 }, // #5
+    { a: '2', b: '4', grade: 5, cost: 0.3 }, // #6
+    { a: '2', b: '5', grade: 5, cost: 0 },   // #7
+    { a: '3', b: '4', grade: 5, cost: 0.3 }, // #8
+    { a: '3', b: '5', grade: 5, cost: 0.3 }, // #9
+    { a: '4', b: '5', grade: 5, cost: 0.1 }, // #10
+  ],
+};
+
+test('小数代价：十进制总代价并列时进入序号裁决（0.2+0.1 与 0.3 视为相等）', () => {
+  // #2,#3,#7,#10 与 #2,#4,#6,#7 的十进制总代价同为 0.3，
+  // 但 0.2+0.1 在二进制浮点下为 0.30000000000000004，不能据此判负；
+  // 前者序号序列字典序更小，须稳定返回 #2,#3,#7,#10
+  const res = solver.solve(DECIMAL_CASE.pieces, DECIMAL_CASE.candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [1, 2, 6, 9]);
+  assert.strictEqual(res.minGrade, 5);
+  assert.strictEqual(res.totalCost, 0.3);
+});
+
+test('小数代价：采用骨架连通、无环且各片连接数达标', () => {
+  const res = solver.solve(DECIMAL_CASE.pieces, DECIMAL_CASE.candidates);
+  assert.strictEqual(res.adopted.length, DECIMAL_CASE.pieces.length - 1);
+  // 独立复核：并查集检环 + 连通，逐片核对连接数区间
+  const n = DECIMAL_CASE.pieces.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x) => {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  };
+  const deg = new Array(n).fill(0);
+  for (const ci of res.adopted) {
+    const c = DECIMAL_CASE.candidates[ci];
+    const a = Number(c.a) - 1;
+    const b = Number(c.b) - 1;
+    assert.notStrictEqual(find(a), find(b), '采用骨架不得含环');
+    parent[find(a)] = find(b);
+    deg[a]++;
+    deg[b]++;
+  }
+  for (let i = 1; i < n; i++) assert.strictEqual(find(i), find(0), '采用骨架须连通');
+  DECIMAL_CASE.pieces.forEach((p, i) => {
+    assert.ok(deg[i] >= p.minDeg && deg[i] <= p.maxDeg, `片 ${p.id} 连接数须落在区间内`);
+    assert.strictEqual(res.degrees[p.id], deg[i]);
+  });
+});
+
+test('小数代价：真实总代价差仍优先于序号字典序', () => {
+  // #10 代价改为 0.2 后，#2,#3,#7,#10 总代价 0.4 真实高于 0.3，
+  // 不得当作并列，须返回真实更廉的 #2,#4,#6,#7（其序号序列字典序更大）
+  const candidates = DECIMAL_CASE.candidates.map((c, i) => (i === 9 ? { ...c, cost: 0.2 } : c));
+  const res = solver.solve(DECIMAL_CASE.pieces, candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [1, 3, 5, 6]);
+  assert.strictEqual(res.totalCost, 0.3);
+});
+
+test('小数代价：优先级①最弱等级最高不受十进制求和影响', () => {
+  // 弱骨架（等级3，总代价0.4）与强骨架（等级7，总代价3.6）二选一，须取强骨架
+  const pieces = [1, 2, 3, 4, 5].map((i) => ({ id: String(i), minDeg: 1, maxDeg: 2 }));
+  const candidates = [
+    { a: '1', b: '2', grade: 3, cost: 0.1 },
+    { a: '2', b: '3', grade: 3, cost: 0.1 },
+    { a: '3', b: '4', grade: 3, cost: 0.1 },
+    { a: '4', b: '5', grade: 3, cost: 0.1 },
+    { a: '1', b: '2', grade: 7, cost: 0.9 },
+    { a: '2', b: '3', grade: 7, cost: 0.9 },
+    { a: '3', b: '4', grade: 7, cost: 0.9 },
+    { a: '4', b: '5', grade: 7, cost: 0.9 },
+  ];
+  const res = solver.solve(pieces, candidates);
+  assert.strictEqual(res.status, 'ok');
+  assert.deepStrictEqual(res.adopted, [4, 5, 6, 7]);
+  assert.strictEqual(res.minGrade, 7);
+  assert.strictEqual(res.totalCost, 3.6);
+});
+
+test('小数代价：重复求解结果完全一致（确定性）', () => {
+  const a = solver.solve(DECIMAL_CASE.pieces, DECIMAL_CASE.candidates);
+  const b = solver.solve(DECIMAL_CASE.pieces, DECIMAL_CASE.candidates);
+  assert.deepStrictEqual(a, b);
+});
+
 test('度数约束：避开会形成环或超出连接上限的组合', () => {
   // 三角形 1-2-3 全选会成环；样例最优解中片 4 的连接数被上限 2 约束
   const res = solver.solve(SKELETON_SAMPLE.pieces, SKELETON_SAMPLE.candidates);
